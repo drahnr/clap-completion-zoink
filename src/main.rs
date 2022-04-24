@@ -1,52 +1,70 @@
-use clap::{Arg, Command, PossibleValue};
 use clap_complete::{generate, Generator, Shell};
 use std::io;
+use std::path::PathBuf;
 
-fn build_cli() -> Command<'static> {
-    Command::new(env!("CARGO_PKG_NAME"))
-        .subcommand_required(true)
-        .subcommand(
-            Command::new("foo").arg(
-                Arg::new("foo")
-                    .long("foo")
-                    .help("foos for real")
-                    .possible_value(PossibleValue::new("7"))
-                    .possible_value(PossibleValue::new("seven")),
-            ),
-        )
-        .subcommand(
-            Command::new("comp").arg(
-                Arg::new("shell")
-                    .long("shell")
-                    .help("shell to generate for")
-                    .possible_values(Shell::possible_values()),
-            ),
-        )
+#[derive(Debug, PartialEq, Eq, clap::Parser)]
+#[clap(rename_all = "kebab-case")]
+struct Common {
+    pub paths: Vec<PathBuf>,
 }
 
-fn print_completions<G: Generator>(gen: G, cmd: &mut Command) {
-    generate(gen, cmd, cmd.get_name().to_string(), &mut io::stdout());
+#[derive(Debug, PartialEq, Eq, clap::Subcommand)]
+#[clap(rename_all = "kebab-case")]
+enum Sub {
+    Foo {
+        #[clap(flatten)]
+        common: Common,
+    },
+    Bar {
+        #[clap(flatten)]
+        common: Common,
+    },
+    Comp {
+        #[clap(long)]
+        shell: Shell,
+    },
+}
+
+#[derive(clap::Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+#[clap(rename_all = "kebab-case")]
+#[clap(subcommand_negates_reqs(true))]
+struct Args {
+    // is required, but we use `subcommand_negates_reqs`, so it's not
+    // when a command exists
+    #[clap(flatten)]
+    /// Short-cut for _some_ subcommand which is assumed default.
+    pub common: Common,
+
+    #[clap(subcommand)]
+    pub command: Option<Sub>,
+}
+
+fn print_completions<G: Generator>(gen: G) {
+    let mut app = <Args as clap::CommandFactory>::command();
+    let app = &mut app;
+    generate(gen, app, app.get_name().to_string(), &mut io::stdout());
 }
 
 fn main() {
-    let app = build_cli();
-    let matches = app.get_matches();
+    let args = <Args as clap::Parser>::parse();
 
-    match matches.subcommand() {
-        Some(("comp", args)) => {
-            if let Ok(shell) = args.value_of_t::<Shell>("shell") {
-                let mut cmd = build_cli();
-                eprintln!("Generating completion file for {}...", shell);
-                print_completions(dbg!(shell), &mut cmd);
-                return;
-            }
-            eprintln!("nope");
+    match args.command {
+        Some(Sub::Comp { shell }) => {
+            print_completions(dbg!(shell));
         }
-        Some(("foo", _args)) => {
-            println!("foo");
-            return;
+        Some(Sub::Foo {
+            common: Common { paths },
+        }) => {
+            println!("foo: {:?}", paths);
         }
-        _ => {}
+        Some(Sub::Bar {
+            common: Common { paths },
+        }) => {
+            println!("BAR: {:?}", paths);
+        }
+        None => {
+            println!("default: {:?}", args.common);
+        }
     }
-    build_cli().print_long_help().unwrap();
 }
