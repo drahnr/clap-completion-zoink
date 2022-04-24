@@ -1,23 +1,21 @@
-use clap::{AppSettings, Arg, Command, PossibleValue, Subcommand, ValueHint};
+use clap::{Arg, Command, PossibleValue};
 use clap_complete::{generate, Generator, Shell};
-use std::{io, collections::{HashSet, HashMap}};
+use std::io;
 
 fn build_cli() -> Command<'static> {
     Command::new(env!("CARGO_PKG_NAME"))
         .subcommand_required(true)
         .subcommand(
-            Command::new("foo")
-            .arg(
+            Command::new("foo").arg(
                 Arg::new("foo")
                     .long("foo")
                     .help("foos for real")
                     .possible_value(PossibleValue::new("7"))
-                    .possible_value(PossibleValue::new("seven"))
+                    .possible_value(PossibleValue::new("seven")),
             ),
         )
         .subcommand(
-            Command::new("comp")
-            .arg(
+            Command::new("comp").arg(
                 Arg::new("shell")
                     .long("shell")
                     .help("shell to generate for")
